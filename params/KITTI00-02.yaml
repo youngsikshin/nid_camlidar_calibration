@@ -1,0 +1,34 @@
+%YAML:1.0
+
+# Camera calibration and distortion parameters (OpenCV) 
+Camera.width: 1241
+Camera.height: 376
+
+Camera.fx: 718.856
+Camera.fy: 718.856
+Camera.cx: 607.1928
+Camera.cy: 185.2157
+
+Camera.k1: 0.0
+Camera.k2: 0.0
+Camera.p1: 0.0
+Camera.p2: 0.0
+
+Camera.d0: 0.0
+Camera.d1: 0.0
+Camera.d2: 0.0
+Camera.d3: 0.0
+Camera.d4: 0.0
+
+# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
+Camera.RGB: 0
+
+# CamLidar Extrinsic Parameter
+extrinsicMatrix: !!opencv-matrix
+   rows: 3
+   cols: 4
+   dt: d
+   data: [ 0.00042768, -0.99996725, -0.00808449, -0.01198459,
+          -0.00721062,  0.00808119, -0.99994132, -0.05403984,
+           0.99997386,  0.00048594, -0.00720693, -0.29219686]
+

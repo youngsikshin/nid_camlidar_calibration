@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(camera_lidar_calibration)
+project(camlidar_calibration)
 
 add_definitions(-std=c++11)
 
@@ -8,7 +8,12 @@ add_definitions(-std=c++11)
 # set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set (SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+set (HEADER
+    include/camlidar_calibration/FileLoader.h
+)
+
 set (SRC
+    src/FileLoader.cpp
     src/main.cpp
 )
 
@@ -38,8 +43,10 @@ include_directories(
     ${CERES_INCLUDE_DIRS}
 )
 
-add_executable (camera_lidar_calibration ${SRC})
-target_link_libraries (camera_lidar_calibration
+add_executable (camlidar_calibration ${HEADER} ${SRC})
+target_link_libraries (camlidar_calibration
     ${CERES_LIBRARIES}
 )
 
+install(DIRECTORY params/
+        DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/params)
