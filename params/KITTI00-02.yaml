@@ -1,4 +1,6 @@
 %YAML:1.0
+# Calibration Data path
+Data.path: "/var/data/camlidar_calib/kitti/"
 
 # Camera calibration and distortion parameters (OpenCV) 
 Camera.width: 1241
