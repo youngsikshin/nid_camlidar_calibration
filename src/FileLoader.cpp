@@ -30,8 +30,10 @@ cv::Mat FileLoader::image(int idx)
     return cv::imread(camera_fname,CV_LOAD_IMAGE_GRAYSCALE);
 }
 
-void FileLoader::lidar(int idx)
+PointCloud FileLoader::lidar(int idx)
 {
+    PointCloud ret;
+
     string lidar_fname = lidar_path_ + lidar_flist_[idx];
     LOG(INFO) << "[FileLoader]\t Lidar file name : " << lidar_fname << endl;
 
@@ -43,17 +45,26 @@ void FileLoader::lidar(int idx)
 
     while(!f_lidar.eof()){
         float x, y, z, r;
+        Point point;
 
         f_lidar.read(reinterpret_cast <char *>(&x), sizeof(x));
         f_lidar.read(reinterpret_cast <char *>(&y), sizeof(y));
         f_lidar.read(reinterpret_cast <char *>(&z), sizeof(z));
         f_lidar.read(reinterpret_cast <char *>(&r), sizeof(r));
 
-        LOG(INFO) << "[FileLoader]\t x y z r : " << x << ", " << y << ", " << z << ", " << r << endl;
+        point.x = x;
+        point.y = y;
+        point.z = z;
+        point.intensity = r;
 
+        ret.push_back(point);
+
+        LOG(INFO) << "[FileLoader]\t x y z r : " << point.x << ", " << point.y << ", " << point.z << ", " << point.intensity << endl;
     }
 
     f_lidar.close();
+
+    return ret;
 //    LOG(INFO) << "[FileLoader]\t Lidar file size : " << f_size << endl;
 }
 

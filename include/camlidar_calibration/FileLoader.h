@@ -6,8 +6,13 @@
 #include <dirent.h>
 
 #include <glog/logging.h>
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <pcl_conversions/pcl_conversions.h>
+
+typedef pcl::PointXYZI Point;
+typedef pcl::PointCloud<Point> PointCloud;
 
 using namespace std;
 
@@ -18,7 +23,7 @@ public:
     ~FileLoader();
 
     cv::Mat image(int idx);
-    void lidar(int idx);
+    PointCloud lidar(int idx);
     int get_dir_list(string dir, vector<string> &files);
 
 private:

@@ -32,6 +32,8 @@ endif()
 find_package(catkin REQUIRED COMPONENTS
     roscpp
     std_msgs
+    pcl_ros
+    pcl_conversions
     image_transport
 )
 
@@ -41,6 +43,8 @@ catkin_package(
       roscpp
       std_msgs
       image_transport
+      pcl_ros
+      pcl_conversions
 )
 
 include_directories(
