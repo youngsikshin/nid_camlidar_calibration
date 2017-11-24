@@ -10,10 +10,13 @@ set (SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 set (HEADER
     include/camlidar_calibration/FileLoader.h
+    include/camlidar_calibration/Datatypes.h
+    include/camlidar_calibration/Calibration.h
 )
 
 set (SRC
     src/FileLoader.cpp
+    src/Calibration.cpp
     src/main.cpp
 )
 
@@ -28,6 +31,7 @@ if(NOT OpenCV_FOUND)
       message(FATAL_ERROR "OpenCV > 2.4.3 not found.")
    endif()
 endif()
+find_package(Eigen3 REQUIRED)
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp
@@ -43,6 +47,7 @@ catkin_package(
       roscpp
       std_msgs
       image_transport
+#      cv_bridge
       pcl_ros
       pcl_conversions
 )
@@ -54,6 +59,7 @@ include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CERES_INCLUDE_DIRS}
     ${Glog_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIR}
 )
 
 add_executable (camlidar_calibration ${HEADER} ${SRC})
@@ -62,6 +68,7 @@ target_link_libraries (camlidar_calibration
     ${CERES_LIBRARIES}
     ${Glog_LIBRARIES}
     ${OpenCV_LIBS}
+    ${EIGEN3_LIBS}
 )
 
 install(DIRECTORY params/
