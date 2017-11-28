@@ -17,10 +17,11 @@ int main(int argc, char *argv[]) {
 
     FLAGS_alsologtostderr = 1;
 
-
     string pkg_path = ros::package::getPath("camlidar_calibration");
     string params_path = pkg_path+"/params/";
 
-    Calibration calibration(params_path);
+    camlidar_calib::Calibration calibration(params_path);
+
+    return 0;
 
 }

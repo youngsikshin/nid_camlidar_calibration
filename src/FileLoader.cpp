@@ -1,5 +1,10 @@
 #include <camlidar_calibration/FileLoader.h>
 
+FileLoader::FileLoader()
+{
+
+}
+
 FileLoader::FileLoader(string path)
     : idx_(0), path_(path)
 {
@@ -24,15 +29,15 @@ FileLoader::~FileLoader()
 
 cv::Mat FileLoader::image(int idx)
 {
-    string camera_fname = camera_path_ + "camera/" + camera_flist_[idx];
+    string camera_fname = camera_path_ + camera_flist_[idx];
     LOG(INFO) << "[FileLoader]\t Camera file name : " << camera_fname << endl;
 
     return cv::imread(camera_fname,CV_LOAD_IMAGE_GRAYSCALE);
 }
 
-PointCloud FileLoader::lidar(int idx)
+camlidar_calib::PointCloud FileLoader::lidar(int idx)
 {
-    PointCloud ret;
+    camlidar_calib::PointCloud ret;
 
     string lidar_fname = lidar_path_ + lidar_flist_[idx];
     LOG(INFO) << "[FileLoader]\t Lidar file name : " << lidar_fname << endl;
@@ -45,7 +50,7 @@ PointCloud FileLoader::lidar(int idx)
 
     while(!f_lidar.eof()){
         float x, y, z, r;
-        Point point;
+        camlidar_calib::Point point;
 
         f_lidar.read(reinterpret_cast <char *>(&x), sizeof(x));
         f_lidar.read(reinterpret_cast <char *>(&y), sizeof(y));
@@ -59,7 +64,7 @@ PointCloud FileLoader::lidar(int idx)
 
         ret.push_back(point);
 
-        LOG(INFO) << "[FileLoader]\t x y z r : " << point.x << ", " << point.y << ", " << point.z << ", " << point.intensity << endl;
+//        LOG(INFO) << "[FileLoader]\t x y z r : " << point.x << ", " << point.y << ", " << point.z << ", " << point.intensity << endl;
     }
 
     f_lidar.close();

@@ -3,12 +3,18 @@
 #include <vector>
 #include <memory>
 #include <Eigen/Core>
+
 #include <opencv2/opencv.hpp>
+#include <pcl/point_types.h>
+#include <pcl/point_cloud.h>
 
 using namespace std;
 
 namespace camlidar_calib
 {
+
+typedef pcl::PointXYZI Point;
+typedef pcl::PointCloud<Point> PointCloud;
 
 // float/double, determines numeric precision
 typedef float NumType;

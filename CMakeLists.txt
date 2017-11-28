@@ -9,14 +9,18 @@ set(CMAKE_AUTOMOC ON)
 set (SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 set (HEADER
+    include/camlidar_calibration/local_parameterization_se3.hpp
     include/camlidar_calibration/FileLoader.h
     include/camlidar_calibration/Datatypes.h
     include/camlidar_calibration/Calibration.h
+    include/camlidar_calibration/CameraModel.h
+    include/camlidar_calibration/PinholeModel.h
 )
 
 set (SRC
     src/FileLoader.cpp
     src/Calibration.cpp
+    src/PinholeModel.cpp
     src/main.cpp
 )
 
@@ -24,6 +28,9 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 find_package (Ceres REQUIRED)
 find_package(Glog)
+find_package(Eigen3 REQUIRED)
+find_package(Sophus REQUIRED)
+
 find_package(OpenCV 3.0 QUIET)
 if(NOT OpenCV_FOUND)
    find_package(OpenCV 2.4.3 QUIET)
@@ -31,7 +38,6 @@ if(NOT OpenCV_FOUND)
       message(FATAL_ERROR "OpenCV > 2.4.3 not found.")
    endif()
 endif()
-find_package(Eigen3 REQUIRED)
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp
@@ -60,6 +66,7 @@ include_directories(
     ${CERES_INCLUDE_DIRS}
     ${Glog_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
+    ${Sophus_INCLUDE_DIR}
 )
 
 add_executable (camlidar_calibration ${HEADER} ${SRC})
@@ -69,6 +76,7 @@ target_link_libraries (camlidar_calibration
     ${Glog_LIBRARIES}
     ${OpenCV_LIBS}
     ${EIGEN3_LIBS}
+    ${Sophus_LIBS}
 )
 
 install(DIRECTORY params/
