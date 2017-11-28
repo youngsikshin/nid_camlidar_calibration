@@ -43,7 +43,7 @@ Calibration::Calibration(string param_path)
     extrinsic.block<3, 4>(0, 0) = extrinsics_;
 
     Eigen::Matrix3f rot_pert;
-    rot_pert = Eigen::AngleAxisf(3.0/180.0*M_PI, Eigen::Vector3f::UnitZ());
+    rot_pert = Eigen::AngleAxisf(5.0/180.0*M_PI, Eigen::Vector3f::UnitZ());
     Eigen::Matrix3f rot = extrinsics_.block<3, 3>(0,0);
     rot.noalias() = rot*rot_pert;
 
@@ -74,12 +74,46 @@ Calibration::Calibration(string param_path)
     cerr << extrinsics_se3_.matrix() << endl << endl;
 
 
+//    optimizer_sophusSE3();
+    axis_ = new double[6];
+    auto extrinsic_iso = util::sophusToIso(extrinsics_se3_);
+    util::isoToAngleAxis(extrinsic_iso, &axis_[0]);
+
+//    optimizer_ceresAngleAxis();
     optimizer_sophusSE3();
 }
 
 Calibration::~Calibration()
 {
 
+}
+
+void Calibration::optimizer_ceresAngleAxis()
+{
+    ceres::Problem problem;
+
+    for(int i=0; i<num_data_;++i) {
+        ceres::CostFunction* cost_function = NIDErrorCeresAxisAngle::Create(camera_, images_[i], pc_[i]);
+        problem.AddResidualBlock(cost_function, NULL, axis_);
+    }
+
+    ceres::Solver::Options options;
+    options.gradient_tolerance = 0.01 * Sophus::Constants<double>::epsilon() * 1e-100;
+    options.function_tolerance = 0.01 * Sophus::Constants<double>::epsilon() * 1e-100;
+    options.parameter_tolerance = 1e-100;
+
+    //    options.inner_iteration_tolerance
+
+    options.linear_solver_type = ceres::DENSE_QR;  // DENSE_SCHUR, DENSE_QR
+    options.minimizer_type = ceres::LINE_SEARCH;  // ceres::TRUST_REGION
+    options.line_search_direction_type = ceres::STEEPEST_DESCENT; //STEEPEST_DESCENT, BFGS
+    //    options.function_tolerance
+    options.max_num_iterations = 1000;
+    options.minimizer_progress_to_stdout = true;
+
+    ceres::Solver::Summary summary;
+    Solve(options, &problem, &summary);
+    std::cout << summary.FullReport() << std::endl;
 }
 
 void Calibration::optimizer_sophusSE3()
@@ -101,12 +135,13 @@ void Calibration::optimizer_sophusSE3()
     options.parameter_tolerance = 1e-100;
 //    options.inner_iteration_tolerance
 
-    options.linear_solver_type = ceres::DENSE_SCHUR;  // DENSE_SCHUR, DENSE_QR
+    options.linear_solver_type = ceres::DENSE_QR;  // DENSE_SCHUR, DENSE_QR
     options.minimizer_type = ceres::LINE_SEARCH;  // ceres::TRUST_REGION
     options.line_search_direction_type = ceres::STEEPEST_DESCENT; //STEEPEST_DESCENT, BFGS
 //    options.function_tolerance
     options.max_num_iterations = 1000;
     options.minimizer_progress_to_stdout = true;
+    options.update_state_every_iteration = true;
 
     ceres::LocalParameterization* param = Sophus::test::getParameterization(true);
     problem.SetParameterization(extrinsics_se3_.data(), param);
