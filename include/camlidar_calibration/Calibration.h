@@ -210,6 +210,245 @@ private:
 
 };
 
+struct NumeriNIDErrorCeresAxisAngleFull {
+    vector<cv::Mat> images_;
+    vector<PointCloud> lidars_;
+    CameraModel::Ptr camera_;
+    PinholeModel::Ptr pinhole_model_;
+
+    NumeriNIDErrorCeresAxisAngleFull(CameraModel::Ptr camera, const vector<cv::Mat>& image, const vector<PointCloud>& lidar)
+    {
+        for(int i=0; i<image.size(); ++i) {
+            cv::Mat img;
+            image[i].copyTo(img);
+            images_.push_back((img));
+
+            PointCloud pc(lidar[i]);
+            lidars_.push_back(pc);
+
+        }
+
+        camera_ = camera;
+        pinhole_model_ = static_pointer_cast<PinholeModel> (camera_);
+    }
+
+    static ceres::CostFunction* Create(CameraModel::Ptr camera, const vector<cv::Mat>& image, const vector<PointCloud>& lidar)
+    {
+        return (new ceres::NumericDiffCostFunction<NumeriNIDErrorCeresAxisAngleFull, ceres::CENTRAL, 1, 6>(new NumeriNIDErrorCeresAxisAngleFull(camera, image, lidar)));
+    }
+
+    bool operator() (const double* extrinsic, double* residuals) const {
+        Histogram hist(256);
+        Probability prob(256);
+
+        double* p_extrinsic = new double[6];
+        for(int i=0; i<6; ++i)
+            p_extrinsic[i] = extrinsic[i];
+
+        Eigen::Isometry3d Tcl = util::axisAngleToIso(p_extrinsic);
+
+        for(int i=0; i<images_.size(); ++i) {
+            cv::Mat test;
+            cvtColor(images_[i], test, cv::COLOR_GRAY2BGR);
+
+
+            PointCloud lidar_c;
+            pcl::transformPointCloud(lidars_[i], lidar_c, Tcl.matrix());
+
+            for(auto point:lidar_c) {
+
+                auto uv = camera_->xyz_to_uv(point);
+
+                if(!camera_->is_in_image(uv, 2) || point.z <= 0.0 || point.z > 30.0)
+                    continue;
+
+                if (point.intensity < 0.08 || point.intensity > 0.39)
+                    continue;
+
+                const float u_f = uv(0);
+                const float v_f = uv(1);
+                const int u_i = static_cast<int> (u_f);
+                const int v_i = static_cast<int> (v_f);
+
+                int gray_val = (int) images_[i].at<uint8_t>(v_i, u_i);
+                int ref_val = (int) (point.intensity*255.0);
+
+                hist.add_hist(gray_val, ref_val);
+
+                cv::circle(test, cv::Point(u_i, v_i), 1.5, cv::Scalar( 1.0, 0.0, 0.0 ), -1);
+            }
+
+            cv::namedWindow("test",cv::WINDOW_AUTOSIZE);
+            cv::imshow("test",test);
+            cv::waitKey(1);
+        }
+
+        for (int i=0; i<256; ++i) {
+            for (int j=0; j<256; ++j) {
+                double joint_p = hist.joint_hist(i,j) / hist.num();
+
+                double ref_p = hist.ref_hist(j) / hist.num();
+
+                prob.joint_probability(i, j, joint_p);
+                prob.ref_probability(j, ref_p);
+//                cerr << joint_p << ", " << ref_p << endl;
+            }
+            double gray_p = hist.gray_hist(i) / hist.num();
+
+            prob.gray_probability(i, gray_p);
+        }
+
+        double H_gray = 0.0;
+        double H_ref = 0.0;
+        double H_joint = 0.0;
+
+        for (int i=0; i<256; ++i) {
+            for (int j=0; j<256; ++j) {
+                double p_joint = prob.joint_probability(i, j);
+
+                if (p_joint > 0.0)  H_joint -= p_joint * log(p_joint);
+            }
+
+            double p_gray = prob.gray_probability(i);
+            double p_ref = prob.ref_probability(i);
+
+            if (p_gray > 0.0)    H_gray -= p_gray * log(p_gray);
+            if (p_ref > 0.0)     H_ref -= p_ref * log(p_ref);
+
+        }
+
+        double NID = 2 - (H_gray+H_ref) / H_joint;
+        cerr << "[NIDError]\t NID = " << NID << endl;
+
+
+//        T T_NID(NID*NID);
+
+        residuals[0] = NID * 1e-3;
+
+        return true;
+    }
+};
+
+struct NIDErrorCeresAxisAngleFull {
+    vector<cv::Mat> images_;
+    vector<PointCloud> lidars_;
+    CameraModel::Ptr camera_;
+    PinholeModel::Ptr pinhole_model_;
+
+    NIDErrorCeresAxisAngleFull(CameraModel::Ptr camera, const vector<cv::Mat>& image, const vector<PointCloud>& lidar)
+    {
+        for(int i=0; i<image.size(); ++i) {
+            cv::Mat img;
+            image[i].copyTo(img);
+            images_.push_back((img));
+
+            PointCloud pc(lidar[i]);
+//            pcl::copyPointCloud(lidar[i], pc);
+            lidars_.push_back(pc);
+
+            cerr << pc[0].x << ", " << pc[0].y << ", " << pc[0].z << endl << endl;
+
+        }
+
+        camera_ = camera;
+        pinhole_model_ = static_pointer_cast<PinholeModel> (camera_);
+    }
+
+    static ceres::CostFunction* Create(CameraModel::Ptr camera, const vector<cv::Mat>& image, const vector<PointCloud>& lidar)
+    {
+        return (new ceres::AutoDiffCostFunction<NIDErrorCeresAxisAngleFull, 1, 6>(new NIDErrorCeresAxisAngleFull(camera, image, lidar)));
+    }
+
+    template <typename T>
+    bool operator()(const T* const extrinsic, T* residuals) const {
+        Histogram hist(256);
+        Probability prob(256);
+
+        double* p_extrinsic = new double[6];
+        for(int i=0; i<6; ++i)
+            p_extrinsic[i] = JetOps<T>::GetScalar(extrinsic[i]);
+
+        Eigen::Isometry3d Tcl = util::axisAngleToIso(p_extrinsic);
+
+        for(int i=0; i<images_.size(); ++i) {
+            cv::Mat test;
+            cvtColor(images_[i], test, cv::COLOR_GRAY2BGR);
+
+
+            PointCloud lidar_c;
+            pcl::transformPointCloud(lidars_[i], lidar_c, Tcl.matrix());
+
+            for(auto point:lidar_c) {
+
+                auto uv = camera_->xyz_to_uv(point);
+
+                if(!camera_->is_in_image(uv, 2) || point.z <= 0.0 || point.z > 30.0)
+                    continue;
+
+                const float u_f = uv(0);
+                const float v_f = uv(1);
+                const int u_i = static_cast<int> (u_f);
+                const int v_i = static_cast<int> (v_f);
+
+                int gray_val = (int) images_[i].at<uint8_t>(v_i, u_i);
+                int ref_val = (int) (point.intensity*255.0);
+
+                hist.add_hist(gray_val, ref_val);
+
+                cv::circle(test, cv::Point(u_i, v_i), 1.5, cv::Scalar( 1.0, 0.0, 0.0 ), -1);
+            }
+
+            cv::namedWindow("test",cv::WINDOW_AUTOSIZE);
+            cv::imshow("test",test);
+            cv::waitKey(1);
+        }
+
+        for (int i=0; i<256; ++i) {
+            for (int j=0; j<256; ++j) {
+                double joint_p = hist.joint_hist(i,j) / hist.num();
+
+                double ref_p = hist.ref_hist(j) / hist.num();
+
+                prob.joint_probability(i, j, joint_p);
+                prob.ref_probability(j, ref_p);
+//                cerr << joint_p << ", " << ref_p << endl;
+            }
+            double gray_p = hist.gray_hist(i) / hist.num();
+
+            prob.gray_probability(i, gray_p);
+        }
+
+        double H_gray = 0.0;
+        double H_ref = 0.0;
+        double H_joint = 0.0;
+
+        for (int i=0; i<256; ++i) {
+            for (int j=0; j<256; ++j) {
+                double p_joint = prob.joint_probability(i, j);
+
+                if (p_joint > 0.0)  H_joint -= p_joint * log(p_joint);
+            }
+
+            double p_gray = prob.gray_probability(i);
+            double p_ref = prob.ref_probability(i);
+
+            if (p_gray > 0.0)    H_gray -= p_gray * log(p_gray);
+            if (p_ref > 0.0)     H_ref -= p_ref * log(p_ref);
+
+        }
+
+        double NID = 2 - (H_gray+H_ref) / H_joint;
+        cerr << "[NIDError]\t NID = " << NID << endl;
+
+
+        T T_NID(NID);
+
+        residuals[0] = T_NID;
+
+        return true;
+    }
+};
+
 struct NIDErrorCeresAxisAngle {
     cv::Mat image_;
     PointCloud lidar_;
@@ -310,7 +549,7 @@ struct NIDErrorCeresAxisAngle {
 //        cerr << "[NIDError]\t Img size: " << image_.cols << ", " << image_.rows << endl;
         cv::namedWindow("test",cv::WINDOW_AUTOSIZE);
         cv::imshow("test",test);
-        cv::waitKey(500);
+        cv::waitKey(1);
 
         cerr << "[NIDError]\t NID = " << NID << endl;
 
@@ -425,7 +664,7 @@ struct NIDError {
 //        cerr << "[NIDError]\t Img size: " << image_.cols << ", " << image_.rows << endl;
         cv::namedWindow("test",cv::WINDOW_AUTOSIZE);
         cv::imshow("test",test);
-        cv::waitKey(50);
+        cv::waitKey(1);
 
         cerr << "[NIDError]\t NID = " << NID << endl;
 
@@ -444,6 +683,7 @@ public:
     ~Calibration();
     void optimizer_sophusSE3();
     void optimizer_ceresAngleAxis();
+    void optimizer_ceresAngleAxisFull();
 
 private:
     FileLoader file_loader_;

@@ -5,7 +5,7 @@ namespace camlidar_calib {
 Calibration::Calibration(string param_path)
   :param_path_(param_path)
 {
-    cv::FileStorage f_ros_settings(param_path_+"KITTI00-02.yaml", cv::FileStorage::READ);
+    cv::FileStorage f_ros_settings(param_path_+"KITTI04-12.yaml", cv::FileStorage::READ);
 
     string path = string(f_ros_settings["Data.path"]);
 
@@ -79,13 +79,46 @@ Calibration::Calibration(string param_path)
     auto extrinsic_iso = util::sophusToIso(extrinsics_se3_);
     util::isoToAngleAxis(extrinsic_iso, &axis_[0]);
 
+    optimizer_ceresAngleAxisFull();
 //    optimizer_ceresAngleAxis();
-    optimizer_sophusSE3();
+//    optimizer_sophusSE3();
 }
 
 Calibration::~Calibration()
 {
 
+}
+
+void Calibration::optimizer_ceresAngleAxisFull()
+{
+    ceres::Problem problem;
+
+    ceres::CostFunction* cost_function = NumeriNIDErrorCeresAxisAngleFull::Create(camera_, images_, pc_);
+    problem.AddResidualBlock(cost_function, NULL, axis_);
+
+    ceres::Solver::Options options;
+    options.gradient_tolerance = 0.01 * Sophus::Constants<double>::epsilon() * 1e-100;
+    options.function_tolerance = 0.01 * Sophus::Constants<double>::epsilon() * 1e-100;
+    options.parameter_tolerance = 1e-100;
+//    options.jacobi_scaling = true;
+//    options.preconditioner_type = ceres::JACOBI;
+
+
+    //    options.inner_iteration_tolerance
+
+    options.linear_solver_type = ceres::DENSE_QR;  // DENSE_SCHUR, DENSE_QR, DENSE_NORMAL_CHOLESKY
+    options.minimizer_type = ceres::LINE_SEARCH;  // ceres::TRUST_REGION, LINE_SEARCH
+    options.line_search_direction_type = ceres::STEEPEST_DESCENT; //STEEPEST_DESCENT, BFGS
+    //    options.function_tolerance
+    options.max_num_iterations = 1000;
+    options.minimizer_progress_to_stdout = true;
+
+    ceres::Solver::Summary summary;
+    Solve(options, &problem, &summary);
+    std::cout << summary.FullReport() << std::endl;
+
+    Eigen::Isometry3d Tex = util::axisAngleToIso(axis_);
+    cout << Tex.matrix() << endl;
 }
 
 void Calibration::optimizer_ceresAngleAxis()
@@ -105,7 +138,7 @@ void Calibration::optimizer_ceresAngleAxis()
     //    options.inner_iteration_tolerance
 
     options.linear_solver_type = ceres::DENSE_QR;  // DENSE_SCHUR, DENSE_QR
-    options.minimizer_type = ceres::LINE_SEARCH;  // ceres::TRUST_REGION
+    options.minimizer_type = ceres::LINE_SEARCH;  // ceres::TRUST_REGION LINE_SEARCH
     options.line_search_direction_type = ceres::STEEPEST_DESCENT; //STEEPEST_DESCENT, BFGS
     //    options.function_tolerance
     options.max_num_iterations = 1000;
@@ -114,6 +147,7 @@ void Calibration::optimizer_ceresAngleAxis()
     ceres::Solver::Summary summary;
     Solve(options, &problem, &summary);
     std::cout << summary.FullReport() << std::endl;
+
 }
 
 void Calibration::optimizer_sophusSE3()
